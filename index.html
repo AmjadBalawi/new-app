@@ -35,11 +35,12 @@
       cursor: pointer;
     }
     button:hover { background: #0d65d6; }
-    .input-row { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; }
-    #result { white-space: pre-wrap; margin-top: 15px; line-height: 1.6; }
+    .input-row { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
+    .result { margin-top: 15px; line-height: 1.6; white-space: pre-wrap; }
     .loading { color: #777; font-style: italic; }
-    .error { color: #d32f2f; }
+    .error { color: #d32f2f; font-weight: bold; }
     pre { background: #f8f9fa; padding: 12px; border-radius: 8px; overflow-x: auto; }
+    .note { font-size: 0.9em; color: #555; margin-top: 8px; }
   </style>
 </head>
 <body>
@@ -47,8 +48,24 @@
 <div class="container">
   <h1>Travel Buddy</h1>
   <p style="text-align:center; color:#555;">
-    Powered by Puter.js AI • No backend • Free (user covers AI usage after signup)
+    Powered by Puter.js • First AI call will prompt you to sign in (free)
   </p>
+
+  <div class="section" style="background:#e8f0fe; border:1px solid #c3d6ff;">
+    <strong>Quick test:</strong> Enter anything below and click "Test LLM"
+    <div class="input-row">
+      <input id="testPrompt" placeholder="e.g. Hello, tell me a joke" style="flex:1;" />
+      <select id="modelSelect">
+        <option value="openai:gpt-4o-mini">GPT-4o mini (fast & cheap)</option>
+        <option value="anthropic:claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
+        <option value="google:gemini-1.5-flash">Gemini 1.5 Flash</option>
+        <option value="meta-llama:llama-3.1-8b-instruct">Llama 3.1 8B</option>
+      </select>
+      <button onclick="testLLM()">Test LLM</button>
+    </div>
+    <div id="testResult" class="result"></div>
+    <div class="note">Open browser console (F12) to see full response object & errors</div>
+  </div>
 
   <!-- Cultural Tips -->
   <div class="section">
@@ -70,7 +87,7 @@
     <div id="gemsResult" class="result"></div>
   </div>
 
-  <!-- Destination Activities -->
+  <!-- Activities -->
   <div class="section">
     <h2>Activities</h2>
     <div class="input-row">
@@ -93,7 +110,7 @@
     <div id="transResult" class="result"></div>
   </div>
 
-  <!-- Weather -->
+  <!-- Weather (unchanged - works without LLM) -->
   <div class="section">
     <h2>Weather</h2>
     <div class="input-row">
@@ -105,99 +122,137 @@
 </div>
 
 <script>
-// Shared helper to call Puter AI
-async function callAI(prompt, model = "anthropic/claude-sonnet-4-5") {
+// ────────────────────────────────────────────────
+//  Improved LLM caller with better debugging
+// ────────────────────────────────────────────────
+async function callAI(prompt, model = "openai:gpt-4o-mini") {
   try {
     const response = await puter.ai.chat(prompt, {
       model: model,
-      temperature: 0.5,
-      max_tokens: 600
+      temperature: 0.6,
+      max_tokens: 700
     });
-    // Handle different response shapes (string or {message: {content: ...}})
-    return response.message?.content?.[0]?.text || response.message?.content || response || "No response received.";
+
+    console.log("Full Puter.ai response:", response); // ← very important for debugging!
+
+    // More robust content extraction
+    let content = "No content received";
+
+    if (typeof response === "string") {
+      content = response;
+    } else if (response?.message?.content) {
+      if (Array.isArray(response.message.content)) {
+        content = response.message.content.map(c => c.text || c).join("\n");
+      } else if (typeof response.message.content === "string") {
+        content = response.message.content;
+      } else if (response.message.content[0]?.text) {
+        content = response.message.content[0].text;
+      }
+    } else if (response?.content) {
+      content = response.content;
+    }
+
+    return content.trim() || "(empty response — check console)";
   } catch (err) {
-    console.error(err);
-    return `Error: ${err.message || "AI service issue — make sure you're signed into Puter.com"}`;
+    console.error("Puter.ai error:", err);
+    return `Error: ${err.message || "Failed to reach AI service"}\n\n• Make sure you signed in to Puter (popup should appear)\n• Check internet connection\n• Try a different model`;
   }
 }
+
+// Quick test button (very useful!)
+async function testLLM() {
+  const prompt = document.getElementById("testPrompt").value.trim();
+  const model = document.getElementById("modelSelect").value;
+  const resultEl = document.getElementById("testResult");
+
+  if (!prompt) return alert("Enter a test prompt");
+
+  resultEl.innerHTML = '<span class="loading">Calling LLM...</span>';
+
+  const output = await callAI(prompt, model);
+  resultEl.innerHTML = `<pre>${output}</pre>`;
+}
+
+// ────────────────────────────────────────────────
+//  Your original features — now using the improved callAI
+// ────────────────────────────────────────────────
 
 async function getCulturalTips() {
   const loc = document.getElementById("tipsLocation").value.trim();
   if (!loc) return alert("Enter a location");
-  const resultEl = document.getElementById("tipsResult");
-  resultEl.innerHTML = '<span class="loading">Generating tips...</span>';
+  const el = document.getElementById("tipsResult");
+  el.innerHTML = '<span class="loading">Generating tips...</span>';
 
   const prompt = `Provide 5 concise cultural tips for visitors to ${loc} in bullet point format. Be accurate and respectful.`;
-  const tips = await callAI(prompt);
-  resultEl.innerHTML = `<pre>${tips}</pre>`;
+  const result = await callAI(prompt);
+  el.innerHTML = `<pre>${result}</pre>`;
 }
 
 async function getHiddenGems() {
   const loc = document.getElementById("gemsLocation").value.trim();
   if (!loc) return alert("Enter a location");
-  const resultEl = document.getElementById("gemsResult");
-  resultEl.innerHTML = '<span class="loading">Finding hidden gems...</span>';
+  const el = document.getElementById("gemsResult");
+  el.innerHTML = '<span class="loading">Finding hidden gems...</span>';
 
   const prompt = `List 5 hidden gems / lesser-known attractions in ${loc} with brief descriptions in numbered format.`;
-  const gems = await callAI(prompt);
-  resultEl.innerHTML = `<pre>${gems}</pre>`;
+  const result = await callAI(prompt);
+  el.innerHTML = `<pre>${result}</pre>`;
 }
 
 async function getActivities() {
   const dest = document.getElementById("activitiesDest").value.trim();
   if (!dest) return alert("Enter a destination");
-  const resultEl = document.getElementById("activitiesResult");
-  resultEl.innerHTML = '<span class="loading">Suggesting activities...</span>';
+  const el = document.getElementById("activitiesResult");
+  el.innerHTML = '<span class="loading">Suggesting activities...</span>';
 
   const prompt = `Suggest 5–7 activities in ${dest} categorized as:\n- Outdoor\n- Cultural\n- Family-friendly\nUse clear headings and short descriptions.`;
-  const activities = await callAI(prompt);
-  resultEl.innerHTML = `<pre>${activities}</pre>`;
+  const result = await callAI(prompt);
+  el.innerHTML = `<pre>${result}</pre>`;
 }
 
 async function translateText() {
   const text = document.getElementById("transText").value.trim();
   const lang = document.getElementById("transLang").value.trim();
   if (!text || !lang) return alert("Enter text and target language");
-  const resultEl = document.getElementById("transResult");
-  resultEl.innerHTML = '<span class="loading">Translating...</span>';
+  const el = document.getElementById("transResult");
+  el.innerHTML = '<span class="loading">Translating...</span>';
 
-  const prompt = `Translate ONLY the following text to ${lang}. Preserve meaning and tone accurately.\nText: """${text}"""`;
-  const translation = await callAI(prompt, "google/gemini-2.5-flash"); // lighter model for translation
-  resultEl.innerHTML = `<strong>Translation (${lang}):</strong><br><pre>${translation}</pre>`;
+  const prompt = `Translate ONLY the following text to ${lang}. Preserve meaning and tone accurately.\nText: """${text}"""\nOutput only the translation.`;
+  const result = await callAI(prompt, "google:gemini-1.5-flash"); // fast for translation
+  el.innerHTML = `<strong>Translation (${lang}):</strong><br><pre>${result}</pre>`;
 }
 
+// Weather remains the same (no LLM needed)
 async function getWeather() {
   const city = document.getElementById("weatherCity").value.trim();
   if (!city) return alert("Enter a city");
-  const resultEl = document.getElementById("weatherResult");
-  resultEl.innerHTML = '<span class="loading">Fetching weather...</span>';
+  const el = document.getElementById("weatherResult");
+  el.innerHTML = '<span class="loading">Fetching weather...</span>';
 
-  const apiKey = "LABN5XZPTZ3RGLZCG4BGBMFHJ"; // from your original code
+  const apiKey = "LABN5XZPTZ3RGLZCG4BGBMFHJ";
   const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(city)}?key=${apiKey}&unitGroup=metric`;
 
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     const current = data.currentConditions;
     const today = data.days[0];
 
     const html = `
       <strong>${data.resolvedAddress}</strong><br>
       <em>${current.conditions}</em><br><br>
-      <strong>Current:</strong> ${current.temp.toFixed(1)} °C (feels like ${current.feelslike.toFixed(1)} °C)<br>
-      <strong>Humidity:</strong> ${current.humidity}%<br>
-      <strong>Wind:</strong> ${current.windspeed} km/h<br>
-      <strong>Today max:</strong> ${today.tempmax.toFixed(1)} °C<br>
+      Current: ${current.temp.toFixed(1)} °C (feels like ${current.feelslike.toFixed(1)} °C)<br>
+      Humidity: ${current.humidity}%<br>
+      Wind: ${current.windspeed} km/h<br>
+      Today max: ${today.tempmax.toFixed(1)} °C<br>
       <small>Timezone: ${data.timezone}</small>
     `;
-    resultEl.innerHTML = html;
+    el.innerHTML = html;
   } catch (err) {
-    resultEl.innerHTML = `<span class="error">Error: ${err.message || "Weather service unavailable"}</span>`;
+    el.innerHTML = `<span class="error">Error: ${err.message || "Weather unavailable"}</span>`;
   }
 }
 </script>
-
 </body>
 </html>
