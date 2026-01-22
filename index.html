@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Travel Buddy – Cultural Tips, Gems, Activities & Weather</title>
+  <script src="https://js.puter.com/v2/"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 20px;
+      background: #f5f7fa;
+      color: #333;
+    }
+    h1 { text-align: center; color: #1a73e8; }
+    .container { max-width: 800px; margin: 0 auto; }
+    .section {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    input, select, button {
+      padding: 12px;
+      font-size: 16px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+    }
+    button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover { background: #0d65d6; }
+    .input-row { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; }
+    #result { white-space: pre-wrap; margin-top: 15px; line-height: 1.6; }
+    .loading { color: #777; font-style: italic; }
+    .error { color: #d32f2f; }
+    pre { background: #f8f9fa; padding: 12px; border-radius: 8px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Travel Buddy</h1>
+  <p style="text-align:center; color:#555;">
+    Powered by Puter.js AI • No backend • Free (user covers AI usage after signup)
+  </p>
+
+  <!-- Cultural Tips -->
+  <div class="section">
+    <h2>Cultural Tips</h2>
+    <div class="input-row">
+      <input id="tipsLocation" placeholder="e.g., Japan, Budapest, New York" style="flex:1;" />
+      <button onclick="getCulturalTips()">Get Tips</button>
+    </div>
+    <div id="tipsResult" class="result"></div>
+  </div>
+
+  <!-- Hidden Gems -->
+  <div class="section">
+    <h2>Hidden Gems</h2>
+    <div class="input-row">
+      <input id="gemsLocation" placeholder="e.g., Lisbon, Kyoto" style="flex:1;" />
+      <button onclick="getHiddenGems()">Find Gems</button>
+    </div>
+    <div id="gemsResult" class="result"></div>
+  </div>
+
+  <!-- Destination Activities -->
+  <div class="section">
+    <h2>Activities</h2>
+    <div class="input-row">
+      <input id="activitiesDest" placeholder="e.g., Barcelona, Bali" style="flex:1;" />
+      <button onclick="getActivities()">Get Suggestions</button>
+    </div>
+    <div id="activitiesResult" class="result"></div>
+  </div>
+
+  <!-- Translation -->
+  <div class="section">
+    <h2>Quick Translator</h2>
+    <div class="input-row">
+      <input id="transText" placeholder="Text to translate" style="flex:1;" />
+    </div>
+    <div class="input-row">
+      <input id="transLang" placeholder="Target language (e.g., Spanish, French)" style="flex:1;" />
+      <button onclick="translateText()">Translate</button>
+    </div>
+    <div id="transResult" class="result"></div>
+  </div>
+
+  <!-- Weather -->
+  <div class="section">
+    <h2>Weather</h2>
+    <div class="input-row">
+      <input id="weatherCity" placeholder="City name (e.g., Paris, Tokyo)" style="flex:1;" />
+      <button onclick="getWeather()">Check Weather</button>
+    </div>
+    <div id="weatherResult" class="result"></div>
+  </div>
+</div>
+
+<script>
+// Shared helper to call Puter AI
+async function callAI(prompt, model = "anthropic/claude-sonnet-4-5") {
+  try {
+    const response = await puter.ai.chat(prompt, {
+      model: model,
+      temperature: 0.5,
+      max_tokens: 600
+    });
+    // Handle different response shapes (string or {message: {content: ...}})
+    return response.message?.content?.[0]?.text || response.message?.content || response || "No response received.";
+  } catch (err) {
+    console.error(err);
+    return `Error: ${err.message || "AI service issue — make sure you're signed into Puter.com"}`;
+  }
+}
+
+async function getCulturalTips() {
+  const loc = document.getElementById("tipsLocation").value.trim();
+  if (!loc) return alert("Enter a location");
+  const resultEl = document.getElementById("tipsResult");
+  resultEl.innerHTML = '<span class="loading">Generating tips...</span>';
+
+  const prompt = `Provide 5 concise cultural tips for visitors to ${loc} in bullet point format. Be accurate and respectful.`;
+  const tips = await callAI(prompt);
+  resultEl.innerHTML = `<pre>${tips}</pre>`;
+}
+
+async function getHiddenGems() {
+  const loc = document.getElementById("gemsLocation").value.trim();
+  if (!loc) return alert("Enter a location");
+  const resultEl = document.getElementById("gemsResult");
+  resultEl.innerHTML = '<span class="loading">Finding hidden gems...</span>';
+
+  const prompt = `List 5 hidden gems / lesser-known attractions in ${loc} with brief descriptions in numbered format.`;
+  const gems = await callAI(prompt);
+  resultEl.innerHTML = `<pre>${gems}</pre>`;
+}
+
+async function getActivities() {
+  const dest = document.getElementById("activitiesDest").value.trim();
+  if (!dest) return alert("Enter a destination");
+  const resultEl = document.getElementById("activitiesResult");
+  resultEl.innerHTML = '<span class="loading">Suggesting activities...</span>';
+
+  const prompt = `Suggest 5–7 activities in ${dest} categorized as:\n- Outdoor\n- Cultural\n- Family-friendly\nUse clear headings and short descriptions.`;
+  const activities = await callAI(prompt);
+  resultEl.innerHTML = `<pre>${activities}</pre>`;
+}
+
+async function translateText() {
+  const text = document.getElementById("transText").value.trim();
+  const lang = document.getElementById("transLang").value.trim();
+  if (!text || !lang) return alert("Enter text and target language");
+  const resultEl = document.getElementById("transResult");
+  resultEl.innerHTML = '<span class="loading">Translating...</span>';
+
+  const prompt = `Translate ONLY the following text to ${lang}. Preserve meaning and tone accurately.\nText: """${text}"""`;
+  const translation = await callAI(prompt, "google/gemini-2.5-flash"); // lighter model for translation
+  resultEl.innerHTML = `<strong>Translation (${lang}):</strong><br><pre>${translation}</pre>`;
+}
+
+async function getWeather() {
+  const city = document.getElementById("weatherCity").value.trim();
+  if (!city) return alert("Enter a city");
+  const resultEl = document.getElementById("weatherResult");
+  resultEl.innerHTML = '<span class="loading">Fetching weather...</span>';
+
+  const apiKey = "LABN5XZPTZ3RGLZCG4BGBMFHJ"; // from your original code
+  const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(city)}?key=${apiKey}&unitGroup=metric`;
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    const current = data.currentConditions;
+    const today = data.days[0];
+
+    const html = `
+      <strong>${data.resolvedAddress}</strong><br>
+      <em>${current.conditions}</em><br><br>
+      <strong>Current:</strong> ${current.temp.toFixed(1)} °C (feels like ${current.feelslike.toFixed(1)} °C)<br>
+      <strong>Humidity:</strong> ${current.humidity}%<br>
+      <strong>Wind:</strong> ${current.windspeed} km/h<br>
+      <strong>Today max:</strong> ${today.tempmax.toFixed(1)} °C<br>
+      <small>Timezone: ${data.timezone}</small>
+    `;
+    resultEl.innerHTML = html;
+  } catch (err) {
+    resultEl.innerHTML = `<span class="error">Error: ${err.message || "Weather service unavailable"}</span>`;
+  }
+}
+</script>
+
+</body>
+</html>
