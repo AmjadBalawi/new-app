@@ -1,197 +1,104 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Free Groq LLM Chat – No Key, No Login</title>
+  <meta charset="UTF-8">
+  <title>Local AI Chat – WebLLM (Unlimited, No Key)</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.48/dist/web-llm.js"></script>
   <style>
-    :root {
-      --bg: #0d1117;
-      --text: #c9d1d9;
-      --user-bg: #238636;
-      --bot-bg: #21262d;
-      --input-bg: #161b22;
-      --border: #30363d;
-    }
-    body {
-      margin: 0;
-      padding: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, sans-serif;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      padding: 16px;
-      text-align: center;
-      background: #161b22;
-      border-bottom: 1px solid var(--border);
-    }
-    h1 {
-      margin: 0;
-      font-size: 1.6rem;
-      color: #58a6ff;
-    }
-    #chat {
-      flex: 1;
-      overflow-y: auto;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .message {
-      max-width: 85%;
-      padding: 12px 16px;
-      border-radius: 16px;
-      line-height: 1.5;
-      word-wrap: break-word;
-    }
-    .user {
-      align-self: flex-end;
-      background: var(--user-bg);
-      color: white;
-    }
-    .assistant {
-      align-self: flex-start;
-      background: var(--bot-bg);
-    }
-    .loading {
-      align-self: flex-start;
-      color: #8b949e;
-      font-style: italic;
-    }
-    form {
-      padding: 16px;
-      background: #161b22;
-      border-top: 1px solid var(--border);
-      display: flex;
-      gap: 12px;
-    }
-    input {
-      flex: 1;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      background: var(--input-bg);
-      color: var(--text);
-      font-size: 1rem;
-    }
-    button {
-      padding: 14px 24px;
-      background: #238636;
-      color: white;
-      border: none;
-      border-radius: 12px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button:hover { background: #2ea043; }
-    #status {
-      text-align: center;
-      padding: 8px;
-      color: #8b949e;
-      font-size: 0.9rem;
-    }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #0f0f17; color: #e0e0ff; }
+    h1 { text-align: center; color: #a78bfa; }
+    #chat { max-width: 800px; margin: 20px auto; height: 60vh; overflow-y: auto; padding: 16px; background: #1e1e2e; border-radius: 12px; }
+    .message { margin: 12px 0; padding: 14px; border-radius: 16px; max-width: 85%; }
+    .user { background: #7c3aed; color: white; margin-left: auto; }
+    .assistant { background: #312e81; color: #e0e0ff; }
+    form { max-width: 800px; margin: 20px auto; display: flex; gap: 10px; }
+    input { flex: 1; padding: 16px; border-radius: 12px; border: none; background: #312e81; color: white; }
+    button { padding: 16px 28px; background: #a78bfa; color: black; border: none; border-radius: 12px; cursor: pointer; }
+    #status { text-align: center; color: #f472b6; margin: 12px 0; }
   </style>
 </head>
 <body>
 
-<header>
-  <h1>Free Groq Chat</h1>
-  <p>No API key • No login • Llama 3.1 70B & other strong models</p>
-</header>
+<h1>Local AI Chat (WebLLM)</h1>
+<p>First time downloads model (~2–4 GB) – then unlimited & offline</p>
 
 <div id="chat">
-  <div class="message assistant">
-    Hello! I'm powered by Groq's public inference.<br>Ask anything you like.
-  </div>
+  <div class="message assistant">Loading engine... Please wait (one-time setup).</div>
 </div>
 
-<div id="status"></div>
+<div id="status">Initializing...</div>
 
 <form id="form">
-  <input id="prompt" placeholder="Type your message..." autocomplete="off" autofocus />
-  <button type="submit">Send</button>
+  <input id="input" placeholder="Ask anything..." disabled />
+  <button type="submit" disabled>Send</button>
 </form>
 
-<script>
+<script type="module">
+  import { CreateMLCEngine } from "@mlc-ai/web-llm";
+
   const chat = document.getElementById('chat');
-  const form = document.getElementById('form');
-  const prompt = document.getElementById('prompt');
   const status = document.getElementById('status');
+  const form = document.getElementById('form');
+  const input = document.getElementById('input');
+  const sendBtn = form.querySelector('button');
 
-  let conversation = [];
+  let engine;
 
-  function addMessage(role, content) {
-    const div = document.createElement('div');
-    div.className = `message ${role}`;
-    div.textContent = content;
-    chat.appendChild(div);
-    chat.scrollTop = chat.scrollHeight;
+  async function init() {
+    try {
+      status.textContent = 'Downloading model (one-time, may take 2–10 min)...';
+      engine = await CreateMLCEngine(
+        "Phi-3.5-mini-instruct-q4f16_1-MLC",  // good balance of size & quality
+        {
+          initProgressCallback: (report) => {
+            status.textContent = report.text;
+          }
+        }
+      );
+      status.textContent = 'Ready! Ask anything.';
+      input.disabled = false;
+      sendBtn.disabled = false;
+    } catch (err) {
+      status.textContent = `Error: ${err.message}`;
+      console.error(err);
+    }
   }
 
-  function showLoading() {
-    const loading = document.createElement('div');
-    loading.className = 'message loading';
-    loading.textContent = 'Thinking...';
-    loading.id = 'loading-msg';
-    chat.appendChild(loading);
-    chat.scrollTop = chat.scrollHeight;
-    return loading;
-  }
+  init();
 
-  form.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    const text = prompt.value.trim();
-    if (!text) return;
+    const text = input.value.trim();
+    if (!text || !engine) return;
 
-    addMessage('user', text);
-    prompt.value = '';
+    const userMsg = document.createElement('div');
+    userMsg.className = 'message user';
+    userMsg.textContent = text;
+    chat.appendChild(userMsg);
+    chat.scrollTop = chat.scrollHeight;
 
-    const loadingEl = showLoading();
+    input.value = '';
+    status.textContent = 'Generating...';
 
     try {
-      conversation.push({ role: 'user', content: text });
-
-      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          model: 'llama-3.1-70b-versatile',
-          messages: conversation,
-          temperature: 0.7,
-          max_tokens: 2048,
-          stream: false
-        })
+      const reply = await engine.chat.completions.create({
+        messages: [{ role: "user", content: text }],
+        temperature: 0.7,
+        max_tokens: 512
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || `HTTP ${response.status}`);
-      }
+      const assistantMsg = document.createElement('div');
+      assistantMsg.className = 'message assistant';
+      assistantMsg.textContent = reply.choices[0].message.content;
+      chat.appendChild(assistantMsg);
+      chat.scrollTop = chat.scrollHeight;
 
-      const data = await response.json();
-      const reply = data.choices[0].message.content.trim();
-
-      loadingEl.remove();
-      addMessage('assistant', reply);
-
-      conversation.push({ role: 'assistant', content: reply });
       status.textContent = '';
-
     } catch (err) {
-      loadingEl.remove();
-      addMessage('assistant', `Sorry — error: ${err.message}\n\nTry again in a minute (public endpoint rate limit)`);
+      status.textContent = `Error: ${err.message}`;
       console.error(err);
-      status.textContent = 'Rate limit or network issue – retry soon';
     }
   });
 </script>
-
 </body>
 </html>
