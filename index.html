@@ -6,39 +6,17 @@
   <title>Travel Buddy – Cultural Tips, Gems, Activities & Weather</title>
   <script src="https://js.puter.com/v2/"></script>
   <style>
-    body {
-      font-family: system-ui, -apple-system, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #f5f7fa;
-      color: #333;
-    }
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; color: #333; }
     h1 { text-align: center; color: #1a73e8; }
     .container { max-width: 800px; margin: 0 auto; }
-    .section {
-      background: white;
-      border-radius: 12px;
-      padding: 20px;
-      margin: 20px 0;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    }
-    input, select, button {
-      padding: 12px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ddd;
-    }
-    button {
-      background: #1a73e8;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
+    .section { background: white; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    input, select, button { padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; }
+    button { background: #1a73e8; color: white; border: none; cursor: pointer; }
     button:hover { background: #0d65d6; }
     .input-row { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
     .result { margin-top: 15px; line-height: 1.6; white-space: pre-wrap; }
     .loading { color: #777; font-style: italic; }
-    .error { color: #d32f2f; font-weight: bold; }
+    .error { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 10px; border-radius: 6px; }
     pre { background: #f8f9fa; padding: 12px; border-radius: 8px; overflow-x: auto; }
     .note { font-size: 0.9em; color: #555; margin-top: 8px; }
   </style>
@@ -48,13 +26,14 @@
 <div class="container">
   <h1>Travel Buddy</h1>
   <p style="text-align:center; color:#555;">
-    Powered by Puter.js • First AI call will prompt you to sign in (free)
+    Powered by Puter.js • First AI call → sign-in popup (free @ puter.com) • Open F12 Console for debug info
   </p>
 
+  <!-- Quick Test Section (use this first!) -->
   <div class="section" style="background:#e8f0fe; border:1px solid #c3d6ff;">
-    <strong>Quick test:</strong> Enter anything below and click "Test LLM"
+    <strong>Quick LLM Test (start here!)</strong>
     <div class="input-row">
-      <input id="testPrompt" placeholder="e.g. Hello, tell me a joke" style="flex:1;" />
+      <input id="testPrompt" placeholder="e.g. Hello from Budapest – tell me a joke" style="flex:1;" />
       <select id="modelSelect">
         <option value="openai:gpt-4o-mini">GPT-4o mini (fast & cheap)</option>
         <option value="anthropic:claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
@@ -64,7 +43,7 @@
       <button onclick="testLLM()">Test LLM</button>
     </div>
     <div id="testResult" class="result"></div>
-    <div class="note">Open browser console (F12) to see full response object & errors</div>
+    <div class="note">If stuck → check popup, disable ad-blocker, try incognito. See F12 → Console & Network tabs.</div>
   </div>
 
   <!-- Cultural Tips -->
@@ -110,7 +89,7 @@
     <div id="transResult" class="result"></div>
   </div>
 
-  <!-- Weather (unchanged - works without LLM) -->
+  <!-- Weather -->
   <div class="section">
     <h2>Weather</h2>
     <div class="input-row">
@@ -123,58 +102,69 @@
 
 <script>
 // ────────────────────────────────────────────────
-//  Improved LLM caller with better debugging
+// Core AI call with timeout + robust parsing + debug
 // ────────────────────────────────────────────────
 async function callAI(prompt, model = "openai:gpt-4o-mini") {
+  const resultEl = document.querySelector('.result') || { innerHTML: '' }; // fallback
+
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s max
+
     const response = await puter.ai.chat(prompt, {
-      model: model,
+      model,
       temperature: 0.6,
       max_tokens: 700
-    });
+    }, { signal: controller.signal });
 
-    console.log("Full Puter.ai response:", response); // ← very important for debugging!
+    clearTimeout(timeoutId);
 
-    // More robust content extraction
-    let content = "No content received";
+    console.log('[DEBUG] Full Puter.ai response object:', JSON.stringify(response, null, 2));
 
-    if (typeof response === "string") {
-      content = response;
-    } else if (response?.message?.content) {
-      if (Array.isArray(response.message.content)) {
-        content = response.message.content.map(c => c.text || c).join("\n");
-      } else if (typeof response.message.content === "string") {
-        content = response.message.content;
-      } else if (response.message.content[0]?.text) {
-        content = response.message.content[0].text;
-      }
+    // Robust content extraction (covers docs + real variants)
+    let content = '';
+    if (response?.message?.content) {
+      content = Array.isArray(response.message.content)
+        ? response.message.content.map(c => typeof c === 'string' ? c : (c.text || '')).join('\n')
+        : (typeof response.message.content === 'string' ? response.message.content : (response.message.content.text || ''));
     } else if (response?.content) {
-      content = response.content;
+      content = typeof response.content === 'string' ? response.content : (response.content.text || '');
+    } else if (typeof response === 'string') {
+      content = response;
     }
 
-    return content.trim() || "(empty response — check console)";
+    const trimmed = (content || '(empty response)').trim();
+    return trimmed || '(no content — see console for full response)';
   } catch (err) {
-    console.error("Puter.ai error:", err);
-    return `Error: ${err.message || "Failed to reach AI service"}\n\n• Make sure you signed in to Puter (popup should appear)\n• Check internet connection\n• Try a different model`;
+    console.error('[DEBUG] Puter.ai call failed:', err);
+    let msg = `Error: ${err.message || 'Unknown issue'}`;
+    if (err.name === 'AbortError') msg += '\n→ Timeout (30s) — network/Puter slow or blocked?';
+    if (err.message?.includes('auth') || err.message?.includes('sign')) msg += '\n→ Sign-in popup blocked/dismissed? Try incognito.';
+    return msg + '\n\nCheck F12 Console & Network tab (look for api.puter.com requests).';
   }
 }
 
-// Quick test button (very useful!)
+// ────────────────────────────────────────────────
+// Test function with retry UI
+// ────────────────────────────────────────────────
 async function testLLM() {
   const prompt = document.getElementById("testPrompt").value.trim();
   const model = document.getElementById("modelSelect").value;
-  const resultEl = document.getElementById("testResult");
+  const el = document.getElementById("testResult");
 
-  if (!prompt) return alert("Enter a test prompt");
+  if (!prompt) return alert("Enter a prompt");
 
-  resultEl.innerHTML = '<span class="loading">Calling LLM...</span>';
+  el.innerHTML = '<span class="loading">Calling LLM... (sign-in popup may appear first)</span>';
 
   const output = await callAI(prompt, model);
-  resultEl.innerHTML = `<pre>${output}</pre>`;
+  el.innerHTML = `<pre>${output}</pre>`;
+  if (output.includes('Error')) {
+    el.innerHTML += '<br><button onclick="testLLM()">Retry Test</button>';
+  }
 }
 
 // ────────────────────────────────────────────────
-//  Your original features — now using the improved callAI
+// Other features (same as yours, using fixed callAI)
 // ────────────────────────────────────────────────
 
 async function getCulturalTips() {
@@ -182,7 +172,6 @@ async function getCulturalTips() {
   if (!loc) return alert("Enter a location");
   const el = document.getElementById("tipsResult");
   el.innerHTML = '<span class="loading">Generating tips...</span>';
-
   const prompt = `Provide 5 concise cultural tips for visitors to ${loc} in bullet point format. Be accurate and respectful.`;
   const result = await callAI(prompt);
   el.innerHTML = `<pre>${result}</pre>`;
@@ -193,7 +182,6 @@ async function getHiddenGems() {
   if (!loc) return alert("Enter a location");
   const el = document.getElementById("gemsResult");
   el.innerHTML = '<span class="loading">Finding hidden gems...</span>';
-
   const prompt = `List 5 hidden gems / lesser-known attractions in ${loc} with brief descriptions in numbered format.`;
   const result = await callAI(prompt);
   el.innerHTML = `<pre>${result}</pre>`;
@@ -204,7 +192,6 @@ async function getActivities() {
   if (!dest) return alert("Enter a destination");
   const el = document.getElementById("activitiesResult");
   el.innerHTML = '<span class="loading">Suggesting activities...</span>';
-
   const prompt = `Suggest 5–7 activities in ${dest} categorized as:\n- Outdoor\n- Cultural\n- Family-friendly\nUse clear headings and short descriptions.`;
   const result = await callAI(prompt);
   el.innerHTML = `<pre>${result}</pre>`;
@@ -216,29 +203,24 @@ async function translateText() {
   if (!text || !lang) return alert("Enter text and target language");
   const el = document.getElementById("transResult");
   el.innerHTML = '<span class="loading">Translating...</span>';
-
   const prompt = `Translate ONLY the following text to ${lang}. Preserve meaning and tone accurately.\nText: """${text}"""\nOutput only the translation.`;
-  const result = await callAI(prompt, "google:gemini-1.5-flash"); // fast for translation
+  const result = await callAI(prompt, "google:gemini-1.5-flash");
   el.innerHTML = `<strong>Translation (${lang}):</strong><br><pre>${result}</pre>`;
 }
 
-// Weather remains the same (no LLM needed)
 async function getWeather() {
   const city = document.getElementById("weatherCity").value.trim();
   if (!city) return alert("Enter a city");
   const el = document.getElementById("weatherResult");
   el.innerHTML = '<span class="loading">Fetching weather...</span>';
-
   const apiKey = "LABN5XZPTZ3RGLZCG4BGBMFHJ";
   const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(city)}?key=${apiKey}&unitGroup=metric`;
-
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const current = data.currentConditions;
     const today = data.days[0];
-
     const html = `
       <strong>${data.resolvedAddress}</strong><br>
       <em>${current.conditions}</em><br><br>
