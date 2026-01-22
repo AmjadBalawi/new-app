@@ -3,89 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Free Groq Chat – No Key, No Login</title>
+  <title>Free LLM Chat – Hugging Face No Key</title>
   <style>
-    body {
-      font-family: system-ui, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background: #0f0f17;
-      color: #e0e0ff;
-    }
-    h1 { text-align: center; color: #a78bfa; margin-bottom: 8px; }
-    p { text-align: center; color: #94a3b8; font-size: 0.95em; margin-bottom: 20px; }
-    #chat {
-      max-width: 800px;
-      margin: 0 auto;
-      height: 65vh;
-      overflow-y: auto;
-      padding: 16px;
-      background: #1e1e2e;
-      border-radius: 16px;
-      border: 1px solid #4c1d95;
-    }
-    .msg {
-      margin: 12px 0;
-      padding: 14px 18px;
-      border-radius: 18px;
-      max-width: 85%;
-      word-wrap: break-word;
-    }
-    .user {
-      background: #7c3aed;
-      color: white;
-      margin-left: auto;
-    }
-    .assistant {
-      background: #312e81;
-      color: #e0e0ff;
-    }
-    form {
-      max-width: 800px;
-      margin: 20px auto;
-      display: flex;
-      gap: 12px;
-    }
-    input {
-      flex: 1;
-      padding: 16px;
-      border-radius: 12px;
-      border: none;
-      background: #2d2d44;
-      color: white;
-      font-size: 16px;
-    }
-    button {
-      padding: 16px 28px;
-      background: #a78bfa;
-      color: black;
-      border: none;
-      border-radius: 12px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    #status {
-      text-align: center;
-      color: #f472b6;
-      font-size: 0.9em;
-      margin: 10px 0;
-    }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #0f0f17; color: #e0e0ff; }
+    h1 { text-align: center; color: #a78bfa; }
+    #chat { max-width: 800px; margin: 20px auto; height: 60vh; overflow-y: auto; padding: 16px; background: #1e1e2e; border-radius: 12px; }
+    .msg { margin: 12px 0; padding: 14px; border-radius: 16px; max-width: 85%; }
+    .user { background: #7c3aed; color: white; margin-left: auto; }
+    .assistant { background: #312e81; color: #e0e0ff; }
+    form { max-width: 800px; margin: 20px auto; display: flex; gap: 10px; }
+    input { flex: 1; padding: 16px; border-radius: 12px; border: none; background: #312e81; color: white; }
+    button { padding: 16px 28px; background: #a78bfa; color: black; border: none; border-radius: 12px; cursor: pointer; }
+    #status { text-align: center; color: #f472b6; }
   </style>
 </head>
 <body>
 
-<h1>Free Groq AI Chat</h1>
-<p>No API key • No login • Llama 3.1 70B & other strong models • Personal use only</p>
+<h1>Free Hugging Face LLM Chat</h1>
+<p>No key • No login • Slow but unlimited personal use (Qwen2.5 72B or Gemma-2)</p>
 
 <div id="chat">
-  <div class="msg assistant">Hi! I'm running on Groq's public inference (no key needed). Ask me anything.</div>
+  <div class="msg assistant">Hi! Ask me anything – responses may take 10–60 seconds (free public endpoint).</div>
 </div>
 
 <div id="status"></div>
 
 <form id="form">
-  <input id="input" placeholder="Your message..." autocomplete="off" autofocus />
-  <button type="submit">Send</button>
+  <input id="input" placeholder="Your question..." autofocus />
+  <button>Send</button>
 </form>
 
 <script>
@@ -94,9 +39,7 @@
   const input = document.getElementById('input');
   const status = document.getElementById('status');
 
-  let messages = [];
-
-  function addMsg(role, content) {
+  async function addMsg(role, content) {
     const div = document.createElement('div');
     div.className = `msg ${role}`;
     div.textContent = content;
@@ -111,41 +54,40 @@
 
     addMsg('user', text);
     input.value = '';
-    status.textContent = 'Thinking...';
-
-    messages.push({ role: 'user', content: text });
+    status.textContent = 'Generating (may be slow)...';
 
     try {
-      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      // Pick one model - Qwen2.5-72B is strongest free public one
+      const model = "Qwen/Qwen2.5-72B-Instruct";
+      const res = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama-3.1-70b-versatile",  // strongest free public model
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 1200
+          inputs: text,  // Simple prompt - can add system prompt if needed
+          parameters: {
+            max_new_tokens: 800,
+            temperature: 0.7,
+            return_full_text: false
+          }
         })
       });
 
       if (!res.ok) {
         const err = await res.json();
-        throw new Error(err.error?.message || `HTTP ${res.status}`);
+        throw new Error(err.error || `HTTP ${res.status}`);
       }
 
       const data = await res.json();
-      const reply = data.choices[0].message.content.trim();
+      const reply = data[0]?.generated_text?.trim() || "No response";
 
       addMsg('assistant', reply);
-      messages.push({ role: 'assistant', content: reply });
-
       status.textContent = '';
     } catch (err) {
-      status.textContent = 'Error: ' + err.message;
+      status.textContent = '';
+      addMsg('assistant', `Error: ${err.message}\nTry again or wait (free endpoint is rate-limited)`);
       console.error(err);
-      addMsg('assistant', `Sorry, something went wrong: ${err.message}`);
     }
   });
 </script>
-
 </body>
 </html>
