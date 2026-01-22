@@ -1,240 +1,134 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Travel Buddy – Fixed Puter.js Auth Popup</title>
-  <script src="https://js.puter.com/v2/"></script>
-  <style>
-    body { font-family: system-ui, sans-serif; margin: 0; padding: 20px; background: #f5f7fa; color: #333; }
-    h1 { text-align: center; color: #1a73e8; }
-    .container { max-width: 800px; margin: 0 auto; }
-    .section { background: white; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-    input, select, button { padding: 12px; font-size: 16px; border-radius: 8px; border: 1px solid #ddd; }
-    button { background: #1a73e8; color: white; border: none; cursor: pointer; }
-    button:hover { background: #0d65d6; }
-    .sign-in-btn { background: #34a853; padding: 16px 32px; font-size: 18px; margin: 20px auto; display: block; }
-    .input-row { display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap; align-items: center; }
-    .result { margin-top: 15px; line-height: 1.6; white-space: pre-wrap; min-height: 100px; background: #f8f9fa; padding: 12px; border-radius: 8px; overflow-x: auto; }
-    .loading { color: #777; font-style: italic; }
-    .error { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 12px; border-radius: 6px; }
-    pre { margin: 0; }
-    .firefox-tip { background: #fff3cd; padding: 12px; border-radius: 6px; margin: 15px 0; }
-  </style>
+<meta charset="UTF-8" />
+<title>LLM chat – no API key needed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<script src="https://js.puter.com/v2/"></script>
+<style>
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f0f1a;
+    color: #e0e0ff;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  h1 { text-align: center; margin-bottom: 0.8em; color: #a5b4fc; }
+  #messages {
+    flex: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    overflow-y: auto;
+    padding: 16px;
+    background: #1e293b;
+    border-radius: 12px;
+    border: 1px solid #334155;
+  }
+  .message {
+    margin: 12px 0;
+    padding: 12px 16px;
+    border-radius: 12px;
+    max-width: 85%;
+  }
+  .user    { background: #6366f1; color: white; margin-left: auto; }
+  .assistant { background: #475569; color: #e0e0ff; }
+  form {
+    max-width: 900px;
+    margin: 20px auto 0;
+    display: flex;
+    gap: 12px;
+  }
+  input {
+    flex: 1;
+    padding: 14px;
+    border-radius: 8px;
+    border: 1px solid #475569;
+    background: #1e293b;
+    color: white;
+    font-size: 1.05rem;
+  }
+  button {
+    padding: 0 24px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  #status {
+    text-align: center;
+    color: #94a3b8;
+    margin: 12px 0;
+    font-size: 0.95rem;
+  }
+</style>
 </head>
 <body>
 
-<div class="container">
-  <h1>Travel Buddy</h1>
-  <p style="text-align:center; color:#555;">
-    Puter.js powered • Sign in once (free) • Fixed for blank popup issues
-  </p>
+<h1>Chat with powerful LLMs<br><small>(no API key needed – user pays tiny amount)</small></h1>
 
-  <div class="firefox-tip">
-    <strong>To fix blank popup:</strong>
-    <ul>
-      <li>Add vercel.json with COOP headers: "Cross-Origin-Opener-Policy": "same-origin-allow-popups", "Cross-Origin-Embedder-Policy": "unsafe-none"</li>
-      <li>Firefox: Set Tracking Protection to Standard, allow popups/cookies for puter.com</li>
-      <li>Test in Private Window with extensions off</li>
-      <li>Sign in at <a href="https://puter.com" target="_blank">puter.com</a> first if needed</li>
-    </ul>
-  </div>
+<div id="messages"></div>
+<div id="status"></div>
 
-  <button class="sign-in-btn" onclick="manualSignIn()">Sign In to Puter (Required - Fixes Blank Popup)</button>
-
-  <!-- Quick Test -->
-  <div class="section">
-    <h2>Quick Test</h2>
-    <div class="input-row">
-      <input id="testPrompt" placeholder="e.g. Hello – say hi from Budapest" style="flex:1;" />
-      <select id="modelSelect">
-        <option value="openai:gpt-4o-mini">GPT-4o mini (fast)</option>
-        <option value="anthropic:claude-3-5-sonnet-latest">Claude 3.5 Sonnet</option>
-        <option value="google:gemini-1.5-flash">Gemini 1.5 Flash</option>
-      </select>
-      <button onclick="testLLM()">Test</button>
-    </div>
-    <div id="testResult" class="result"></div>
-  </div>
-
-  <!-- Cultural Tips -->
-  <div class="section">
-    <h2>Cultural Tips</h2>
-    <div class="input-row">
-      <input id="tipsLocation" placeholder="e.g., Japan, Budapest, New York" style="flex:1;" />
-      <button onclick="getCulturalTips()">Get Tips</button>
-    </div>
-    <div id="tipsResult" class="result"></div>
-  </div>
-
-  <!-- Hidden Gems -->
-  <div class="section">
-    <h2>Hidden Gems</h2>
-    <div class="input-row">
-      <input id="gemsLocation" placeholder="e.g., Lisbon, Kyoto" style="flex:1;" />
-      <button onclick="getHiddenGems()">Find Gems</button>
-    </div>
-    <div id="gemsResult" class="result"></div>
-  </div>
-
-  <!-- Activities -->
-  <div class="section">
-    <h2>Activities</h2>
-    <div class="input-row">
-      <input id="activitiesDest" placeholder="e.g., Barcelona, Bali" style="flex:1;" />
-      <button onclick="getActivities()">Get Suggestions</button>
-    </div>
-    <div id="activitiesResult" class="result"></div>
-  </div>
-
-  <!-- Translation -->
-  <div class="section">
-    <h2>Quick Translator</h2>
-    <div class="input-row">
-      <input id="transText" placeholder="Text to translate" style="flex:1;" />
-    </div>
-    <div class="input-row">
-      <input id="transLang" placeholder="Target language (e.g., Spanish, French)" style="flex:1;" />
-      <button onclick="translateText()">Translate</button>
-    </div>
-    <div id="transResult" class="result"></div>
-  </div>
-
-  <!-- Weather -->
-  <div class="section">
-    <h2>Weather</h2>
-    <div class="input-row">
-      <input id="weatherCity" placeholder="City name (e.g., Paris, Tokyo)" style="flex:1;" />
-      <button onclick="getWeather()">Check Weather</button>
-    </div>
-    <div id="weatherResult" class="result"></div>
-  </div>
-</div>
+<form id="form">
+  <input id="input" placeholder="Ask anything..." autocomplete="off" autofocus/>
+  <button type="submit">Send</button>
+</form>
 
 <script>
-// Manual sign-in function
-async function manualSignIn() {
-  const statusEl = document.getElementById('testResult') || document.querySelector('.result');
-  statusEl.innerHTML = '<span class="loading">Opening sign-in popup... Allow and complete if not blank.</span>';
+const messagesDiv = document.getElementById('messages')
+const form = document.getElementById('form')
+const input = document.getElementById('input')
+const status = document.getElementById('status')
+
+let conversation = []
+
+function addMessage(role, content) {
+  const div = document.createElement('div')
+  div.className = `message ${role}`
+  div.textContent = content
+  messagesDiv.appendChild(div)
+  messagesDiv.scrollTop = messagesDiv.scrollHeight
+}
+
+form.addEventListener('submit', async e => {
+  e.preventDefault()
+  const text = input.value.trim()
+  if (!text) return
+
+  addMessage('user', text)
+  input.value = ''
+  status.textContent = 'Thinking...'
 
   try {
-    await puter.auth.signIn();
-    statusEl.innerHTML += '<br><span style="color:green">Signed in! Try a test now.</span>';
+    conversation.push({ role: 'user', content: text })
+
+    // You can change model here ↓
+    const response = await puter.ai.chat(conversation, {
+      model: 'openai:gpt-4o-mini',               // fast & cheap
+      // model: 'anthropic:claude-3-5-sonnet-latest',  // very strong
+      // model: 'google:gemini-1.5-flash',             // good balance
+      temperature: 0.75,
+      max_tokens: 1400
+    })
+
+    let answer = response?.message?.content
+    if (Array.isArray(answer)) answer = answer.map(c => c.text || '').join('')
+    if (!answer && typeof response === 'string') answer = response
+
+    addMessage('assistant', answer || '(no response)')
+    conversation.push({ role: 'assistant', content: answer })
+
+    status.textContent = ''
   } catch (err) {
-    statusEl.innerHTML = `<div class="error">Error: ${err.message || 'Popup failed (blank?)'}</div><br><small>Check console. Try manual sign-in at puter.com then refresh.</small>`;
-    console.error('Sign-in error:', err);
+    status.textContent = 'Error: ' + (err.message || 'Check console (F12)')
+    console.error(err)
   }
-}
-
-// Enhanced callAI with streaming for better UI feedback
-async function callAI(prompt, model = "openai:gpt-4o-mini", resultEl) {
-  resultEl.innerHTML = '<span class="loading">Generating response (streaming)...</span>';
-
-  try {
-    const response = await puter.ai.chat(prompt, {
-      model,
-      temperature: 0.6,
-      max_tokens: 700,
-      stream: true
-    });
-
-    let content = '';
-    for await (const part of response) {
-      if (part?.text) {
-        content += part.text;
-        resultEl.innerHTML = `<pre>${content}</pre>`;
-      } else if (part?.message?.content) {
-        content += part.message.content;
-        resultEl.innerHTML = `<pre>${content}</pre>`;
-      }
-    }
-
-    if (!content) {
-      resultEl.innerHTML = '<div class="error">No content received. Check console.</div>';
-    }
-
-    console.log('Full streamed content:', content);
-    return content;
-  } catch (err) {
-    console.error('callAI error:', err);
-    resultEl.innerHTML = `<div class="error">Error: ${err.message || 'Failed'}<br>Sign-in may not have completed. Try sign-in button again.</div>`;
-    return '';
-  }
-}
-
-// Test LLM
-async function testLLM() {
-  const prompt = document.getElementById("testPrompt").value.trim();
-  const model = document.getElementById("modelSelect").value;
-  const el = document.getElementById("testResult");
-  if (!prompt) return alert("Enter a prompt");
-  await callAI(prompt, model, el);
-}
-
-// Cultural Tips
-async function getCulturalTips() {
-  const loc = document.getElementById("tipsLocation").value.trim();
-  if (!loc) return alert("Enter a location");
-  const el = document.getElementById("tipsResult");
-  const prompt = `Provide 5 concise cultural tips for visitors to ${loc} in bullet point format. Be accurate and respectful.`;
-  await callAI(prompt, "openai:gpt-4o-mini", el);
-}
-
-// Hidden Gems
-async function getHiddenGems() {
-  const loc = document.getElementById("gemsLocation").value.trim();
-  if (!loc) return alert("Enter a location");
-  const el = document.getElementById("gemsResult");
-  const prompt = `List 5 hidden gems / lesser-known attractions in ${loc} with brief descriptions in numbered format.`;
-  await callAI(prompt, "openai:gpt-4o-mini", el);
-}
-
-// Activities
-async function getActivities() {
-  const dest = document.getElementById("activitiesDest").value.trim();
-  if (!dest) return alert("Enter a destination");
-  const el = document.getElementById("activitiesResult");
-  const prompt = `Suggest 5–7 activities in ${dest} categorized as:\n- Outdoor\n- Cultural\n- Family-friendly\nUse clear headings and short descriptions.`;
-  await callAI(prompt, "openai:gpt-4o-mini", el);
-}
-
-// Translation
-async function translateText() {
-  const text = document.getElementById("transText").value.trim();
-  const lang = document.getElementById("transLang").value.trim();
-  if (!text || !lang) return alert("Enter text and target language");
-  const el = document.getElementById("transResult");
-  const prompt = `Translate ONLY the following text to ${lang}. Preserve meaning and tone accurately.\nText: """${text}"""\nOutput only the translation.`;
-  await callAI(prompt, "google:gemini-1.5-flash", el);
-}
-
-// Weather (non-LLM)
-async function getWeather() {
-  const city = document.getElementById("weatherCity").value.trim();
-  if (!city) return alert("Enter a city");
-  const el = document.getElementById("weatherResult");
-  el.innerHTML = '<span class="loading">Fetching weather...</span>';
-  const apiKey = "LABN5XZPTZ3RGLZCG4BGBMFHJ";
-  const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${encodeURIComponent(city)}?key=${apiKey}&unitGroup=metric`;
-  try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const current = data.currentConditions;
-    const today = data.days[0];
-    el.innerHTML = `
-      <strong>${data.resolvedAddress}</strong><br>
-      <em>${current.conditions}</em><br><br>
-      Current: ${current.temp.toFixed(1)} °C (feels like ${current.feelslike.toFixed(1)} °C)<br>
-      Humidity: ${current.humidity}%<br>
-      Wind: ${current.windspeed} km/h<br>
-      Today max: ${today.tempmax.toFixed(1)} °C<br>
-      <small>Timezone: ${data.timezone}</small>
-    `;
-  } catch (err) {
-    el.innerHTML = `<div class="error">Error: ${err.message || "Weather service unavailable"}</div>`;
-  }
-}
+})
 </script>
 </body>
 </html>
